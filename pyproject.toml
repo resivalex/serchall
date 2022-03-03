@@ -8,6 +8,5 @@ description = ""
 authors = ["user@example.com"]
 
 [tool.poetry.dependencies]
-python = ">=3.7, <3.11"
+python = "3.7"
 streamlit = "^1.7.0"
-pandas = "^1.4.1"
