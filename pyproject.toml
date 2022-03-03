@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[tool.poetry]
+name = "serchall"
+version = "0.0.1"
+description = ""
+authors = ["user@example.com"]
+
+[tool.poetry.dependencies]
+python = ">=3.8, <3.11"
+streamlit = "^1.7.0"
+pandas = "^1.4.1"
