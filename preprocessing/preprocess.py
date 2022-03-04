@@ -16,12 +16,12 @@ def _parse_date(s):
 
 
 def preprocess(data):
-    data['name'] = [s.lower() for s in data['name']]
+    for str_field in ['name', 'region', 'payment_conditions']:
+        data[str_field] = [s.lower() for s in data[str_field]]
     data['delivery_date'] = [_parse_date(s) for s in data['delivery_date']]
     data['order_date'] = [_parse_date(s) for s in data['order_date']]
     for int_field in ['delivery_period', 'planned_delivery_period', 'amount', 'supplier']:
         data[int_field] = [(int(s) if s != '' else None) for s in data[int_field]]
     data['price'] = data['price'].astype(float)
-    data['payment_conditions'] = [s.lower() for s in data['payment_conditions']]
     data['out_of_plan'] = (data['out_of_plan'] != '').astype(int)
     return data
