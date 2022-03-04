@@ -69,10 +69,10 @@ def model_page(data):
     train_data = prepare_train_data(data)
     st.text('Тренировочные данные')
     st.dataframe(train_data)
+    st.text('Предсказания на сегодня...')
     model = PriceIndexingModel()
     model.fit(train_data[['shift', 'distance']], train_data['coef'])
     data = add_today_prediction(data, model)
-    st.text('Предсказания на сегодня')
     st.dataframe(data[['name', 'order_date', 'price', 'coef', data.columns[-1]]].sort_values('name'))
 
 
