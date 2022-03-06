@@ -40,11 +40,11 @@ def prepare_train_data(data):
             i2 = random.randint(0, len(df) - 1)
             if i1 >= i2:
                 continue
-            distance = (df.iloc[i2]['order_date'] - df.iloc[i1]['order_date']).days
+            distance = float((df.iloc[i2]['order_date'] - df.iloc[i1]['order_date']).days)
             if distance == 0:
                 continue
-            shift = (df.iloc[i1]['order_date'] - BASE_DATE).days
-            coef = df.iloc[i2]['price'] / df.iloc[i1]['price']
+            shift = float((df.iloc[i1]['order_date'] - BASE_DATE).days)
+            coef = float(df.iloc[i2]['price'] / df.iloc[i1]['price'])
             if coef < 0.1 or coef > 10:
                 continue
             train_data.append((shift, distance, coef))
@@ -62,8 +62,8 @@ def add_today_prediction(data, model):
             data.at[i, today_price_key] = data.at[i, 'price']
         else:
             coef = model.predict(pd.DataFrame([{
-                'shift': (data.at[i, 'order_date'] - BASE_DATE).days,
-                'distance': (today - data.at[i, 'order_date']).days
+                'shift': float((data.at[i, 'order_date'] - BASE_DATE).days),
+                'distance': float((today - data.at[i, 'order_date']).days)
             }]))[0]
             data.at[i, 'coef'] = coef
             data.at[i, today_price_key] = data.at[i, 'price'] * coef
