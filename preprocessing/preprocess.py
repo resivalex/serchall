@@ -6,6 +6,7 @@ def preprocess(df):
     df['Наименование2'] = df.Наименование.apply(
         lambda s: s.lower().strip().replace("  ", "").replace('.', '-')
     )
+    # clean names
     sub_dict = {
         r"(зуб)\s(.*)\s*(ковша)\s*(.+)": r"\1 \3 \2 \4",
         ",* *с наплавкой": " наплавка",
@@ -43,6 +44,7 @@ def preprocess(df):
     for k, v in sub_dict.items():
         df.Наименование3 = df.Наименование3.apply(lambda s: re.sub(k, v, s))
 
+    # group items
     group_dict = {
         "амортизатор \d": "амортизатор",
         "барабан \d": "барабан",
@@ -85,6 +87,8 @@ def preprocess(df):
         "колесо": None
     }
 
+    df.drop(columns="Наименование2", inplace=True)
+
     df['Группа'] = None
     for k, v in group_dict.items():
         df.Группа = df.apply(
@@ -97,8 +101,6 @@ def preprocess(df):
             else r.Группа,
             axis=1
         )
-
-    df.drop(columns="Наименование2", inplace=True)
 
     # Can't use rows with empty delivery date.
     df = df[df['Дата поставки'].notnull()]
