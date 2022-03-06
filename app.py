@@ -1,7 +1,7 @@
 import pendulum
 import streamlit as st
 import pandas as pd
-from preprocessing.preprocess import preprocess
+from preprocessing.preprocess_initial import preprocess
 from predictions.price_indexing_model import PriceIndexingModel
 import random
 import matplotlib.pyplot as plt
