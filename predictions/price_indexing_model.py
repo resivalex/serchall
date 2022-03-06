@@ -1,11 +1,11 @@
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.base import BaseEstimator
 
 
 class PriceIndexingModel(BaseEstimator):
 
     def __init__(self):
-        self.model = RandomForestRegressor()
+        self.model = LinearRegression()
 
     def fit(self, x, y):
         self.model.fit(x, y)

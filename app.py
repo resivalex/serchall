@@ -4,6 +4,10 @@ import pandas as pd
 from preprocessing.preprocess import preprocess
 from predictions.price_indexing_model import PriceIndexingModel
 import random
+import matplotlib.pyplot as plt
+
+
+BASE_DATE = pendulum.date(2000, 1, 1)
 
 
 st.set_page_config(page_title='#2', layout='wide')
@@ -25,7 +29,6 @@ def preprocessing(data):
 
 def prepare_train_data(data):
     data = data[~data['order_date'].isna()]
-    min_date = data['order_date'].min()
     train_columns = ['shift', 'distance', 'coef']
     train_data = []
     for name, df in data.groupby('name'):
@@ -38,9 +41,11 @@ def prepare_train_data(data):
             if i1 >= i2:
                 continue
             distance = (df.iloc[i2]['order_date'] - df.iloc[i1]['order_date']).days
-            shift = (df.iloc[i1]['order_date'] - min_date).days
+            if distance == 0:
+                continue
+            shift = (df.iloc[i1]['order_date'] - BASE_DATE).days
             coef = df.iloc[i2]['price'] / df.iloc[i1]['price']
-            if coef == 1 or coef < 0.1 or coef > 10:
+            if coef < 0.1 or coef > 10:
                 continue
             train_data.append((shift, distance, coef))
 
@@ -56,7 +61,10 @@ def add_today_prediction(data, model):
         if data.at[i, 'order_date'] is None:
             data.at[i, today_price_key] = data.at[i, 'price']
         else:
-            coef = model.predict(pd.DataFrame([{'shift': 0, 'distance': 0}]))[0]
+            coef = model.predict(pd.DataFrame([{
+                'shift': (data.at[i, 'order_date'] - BASE_DATE).days,
+                'distance': (today - data.at[i, 'order_date']).days
+            }]))[0]
             data.at[i, 'coef'] = coef
             data.at[i, today_price_key] = data.at[i, 'price'] * coef
     return data
@@ -73,6 +81,13 @@ def model_page(data):
     model = PriceIndexingModel()
     model.fit(train_data[['shift', 'distance']], train_data['coef'])
     data = add_today_prediction(data, model)
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    today = pendulum.today().date()
+    for i in data.index:
+        if data.at[i, 'order_date'] is not None:
+            ax.plot([data.at[i, 'order_date'], today], [1.0, data.at[i, 'coef']], alpha=0.1, linewidth=0.5, color='black')
+    st.pyplot(fig)
     st.dataframe(data[['name', 'order_date', 'price', 'coef', data.columns[-1]]].sort_values('name'))
 
 

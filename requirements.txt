@@ -3,3 +3,4 @@ watchdog==2.1.6
 openpyxl==3.0.9
 pendulum==2.1.2
 scikit-learn==1.0.2
+matplotlib==3.5.1
