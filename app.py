@@ -55,8 +55,8 @@ def prepare_train_data(data):
 def add_today_prediction(data, model):
     today = pendulum.today().date()
     today_price_key = f'{today.isoformat()}_price'
-    data['coef'] = 1
-    data[today_price_key] = 0
+    data['coef'] = 1.0
+    data[today_price_key] = 0.0
     for i in data.index:
         if data.at[i, 'order_date'] is None:
             data.at[i, today_price_key] = data.at[i, 'price']
