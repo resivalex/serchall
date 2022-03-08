@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 
 
@@ -13,6 +13,20 @@ def preprocess(df):
         return None
 
     df['Дата поставки'] = df['Дата поставки'].apply(date_parse)
+
+    # calculate order dates
+    df['Расчетная дата заказа'] = None
+    df['Дата заказа фактическая'] = None
+    for i, r in df.iterrows():
+        if pd.notnull(r['Дата заказа']):
+            df.loc[i, 'Расчетная дата заказа'] = df.loc[i, 'Дата заказа']
+            df.loc[i, 'Дата заказа фактическая'] = True
+        elif pd.notnull(r['Дата поставки']) and pd.notnull(r['Плановый срок поставки']):
+            df.loc[i, 'Расчетная дата заказа'] = (
+                    df.loc[i, 'Дата поставки'] -
+                    timedelta(days=df.loc[i, 'Плановый срок поставки'])
+            )
+            df.loc[i, 'Дата заказа фактическая'] = False
 
     # clean names
     df['Наименование2'] = df.Наименование.apply(
