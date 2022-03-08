@@ -1,5 +1,4 @@
 from .preprocess import preprocess as primary_preprocess
-import numpy as np
 
 
 def preprocess(data):
@@ -30,9 +29,9 @@ def preprocess(data):
     data = data.rename(renamings, axis=1)
     data['out_of_plan'] = data['out_of_plan'] == 1.0
     data['has_order_date'] = data['has_order_date'].fillna(False)
-    data['calculated_order_date'] = data['calculated_order_date'].fillna(
-        np.quantile(data['calculated_order_date'].dropna(), 0.5, method='lower')
-    )
+    dates = sorted(data['calculated_order_date'].dropna())
+    median_date = dates[len(dates) // 2]
+    data['calculated_order_date'] = data['calculated_order_date'].fillna(median_date)
     data['calculated_order_date'] = [t.date() for t in data['calculated_order_date']]
     data['order_date'] = [t.date() for t in data['order_date']]
 
