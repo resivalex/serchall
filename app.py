@@ -1,7 +1,7 @@
 import pendulum
 import streamlit as st
 import pandas as pd
-from preprocessing.preprocess_initial import preprocess
+from preprocessing.secondary_preprocess import preprocess
 from predictions.price_indexing.construction import construct
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -14,14 +14,6 @@ BASE_DATE = pendulum.date(2000, 1, 1)
 
 
 st.set_page_config(page_title='#2', layout='wide')
-
-
-def filter_by_name(data):
-    needle = st.text_input('Фильтр')
-    data = data[[(needle.lower() in name.lower()) for name in data['Наименование']]]
-
-    st.text(f'Строк: {len(data)}')
-    st.dataframe(data, height=600)
 
 
 def plot_price_changes(price_changes):
@@ -69,20 +61,25 @@ def predict_today_price_block(data, price_index):
     with col1:
         fig, ax = plt.subplots()
         ax.set_title('Прогнозные цены')
-        sns.lineplot(data=name_price_index, x='date', y='price', ax=ax, color='lightgreen')
+        sns.lineplot(data=name_price_index, x='date', y='price', ax=ax, color='black')
         sns.scatterplot(data=pd.DataFrame([{'date': today, 'price': today_price}]),
-                        x='date', y='price', ax=ax, color='lightgreen')
+                        x='date', y='price', ax=ax, color='black', s=50)
         sns.scatterplot(data=name_df, x='order_date', y='price', ax=ax, color='black')
         st.pyplot(fig)
 
 
 def model_page(data):
     data = preprocess(data)
+
+    def reset_cache():
+        result = construct(data)
+        joblib.dump(result, 'cache/common_index.joblib')
+        return result
+
     if os.path.exists('cache/common_index.joblib'):
         result = joblib.load('cache/common_index.joblib')
         if result['extended_line']['date'].max() != pendulum.today().date():
-            result = construct(data)
-            joblib.dump(result, 'cache/common_index.joblib')
+            result = reset_cache()
     else:
         result = construct(data)
         joblib.dump(result, 'cache/common_index.joblib')
@@ -92,6 +89,7 @@ def model_page(data):
             plot_price_changes(result['day_price_changes'])
         with col2:
             plot_price_index(result['price_index'], result['extended_line'])
+        st.button('Очистить кэш и пересчитать индекс', on_click=reset_cache)
     with st.expander('Прогнозы', expanded=True):
         predict_today_price_block(data, result['extended_line'])
 

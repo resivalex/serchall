@@ -2,8 +2,8 @@ import pandas as pd
 import re
 
 
-def preprocess(df):
-    df['Наименование2'] = df.Наименование.apply(
+def preprocess_name(names):
+    names = names.apply(
         lambda s: s.lower().strip().replace("  ", "").replace('.', '-')
     )
     sub_dict = {
@@ -38,10 +38,14 @@ def preprocess(df):
         r",(\S)": r", \1",
     }
 
-    df['Наименование3'] = df.Наименование2
-
     for k, v in sub_dict.items():
-        df.Наименование3 = df.Наименование3.apply(lambda s: re.sub(k, v, s))
+        names = names.apply(lambda s: re.sub(k, v, s))
+
+    return names
+
+
+def preprocess(df):
+    df['Наименование3'] = preprocess_name(df.Наименование)
 
     group_dict = {
         "амортизатор \d": "амортизатор",
@@ -97,8 +101,6 @@ def preprocess(df):
             else r.Группа,
             axis=1
         )
-
-    df.drop(columns="Наименование2", inplace=True)
 
     # Can't use rows with empty delivery date.
     df = df[df['Дата поставки'].notnull()]

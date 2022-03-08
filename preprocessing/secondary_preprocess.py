@@ -1,5 +1,6 @@
 import pendulum
 import re
+from .preprocess import preprocess_name
 
 
 def _parse_date(s):
@@ -29,7 +30,8 @@ def preprocess(data):
         'out_of_plan',
         'supplier'
     ]
-    for str_field in ['name', 'region', 'payment_conditions']:
+    data['name'] = preprocess_name(data['name'])
+    for str_field in ['region', 'payment_conditions']:
         data[str_field] = [s.lower() for s in data[str_field]]
     data['delivery_date'] = [_parse_date(s) for s in data['delivery_date']]
     data['order_date'] = [_parse_date(s) for s in data['order_date']]
