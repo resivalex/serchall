@@ -70,7 +70,10 @@ def predict_today_price_block(data, price_index):
 def model_page(data):
     data = preprocess(data)
 
-    data_for_index = data[['name', 'price', 'calculated_order_date']].rename({'calculated_order_date': 'date'}, axis=1)
+    data_for_index = \
+        data[data['has_order_date']] \
+            [['name', 'price', 'calculated_order_date']] \
+            .rename({'calculated_order_date': 'date'}, axis=1)
     def reset_cache():
         os.remove('cache/common_index.joblib')
         result = construct(data_for_index)
