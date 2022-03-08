@@ -1,8 +1,20 @@
 import pandas as pd
+from datetime import datetime
 import re
 
 
 def preprocess(df):
+    # parse delivery dates
+    def date_parse(s):
+        if isinstance(s, datetime):
+            return s
+        elif isinstance(s, str):
+            return datetime.strptime(s, '%d.%m.%Y')
+        return None
+
+    df['Дата поставки'] = df['Дата поставки'].apply(date_parse)
+
+    # clean names
     df['Наименование2'] = df.Наименование.apply(
         lambda s: s.lower().strip().replace("  ", "").replace('.', '-')
     )
