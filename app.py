@@ -13,7 +13,7 @@ import numpy as np
 BASE_DATE = pendulum.date(2000, 1, 1)
 
 
-st.set_page_config(page_title='#2', layout='wide')
+st.set_page_config(page_title='Мониторинг цен', layout='wide')
 
 
 def plot_price_changes(price_changes):
