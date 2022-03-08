@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import pendulum
+import datetime
 from prophet import Prophet
 
 
@@ -9,7 +9,7 @@ def construct(df):
     price_changes_without_outliers = remove_outliers(price_changes)
     day_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)
     price_index = convert_day_changes_to_index(day_price_changes)
-    extended_line = extend_line(price_index, pendulum.today().date())
+    extended_line = extend_line(price_index, datetime.datetime.today().date())
     return dict(
         price_index=price_index,
         extended_line=extended_line,
@@ -18,15 +18,14 @@ def construct(df):
 
 
 def get_normalized_price_changes(df):
-    df = df[~df['order_date'].isna()]
     price_changes = []
     for name, name_df in df.groupby('name'):
-        name_price_df = name_df.groupby('order_date', as_index=False)['price'].mean()
-        name_price_df = name_price_df.sort_values('order_date')
+        name_price_df = name_df.groupby('date', as_index=False)['price'].mean()
+        name_price_df = name_price_df.sort_values('date')
         if len(name_price_df) == 1:
             continue
-        for (order_date_1, price_1), (order_date_2, price_2) in zip(name_price_df.values, name_price_df.values[1:]):
-            price_changes.append((order_date_1, order_date_2, price_2 / price_1))
+        for (date_1, price_1), (date_2, price_2) in zip(name_price_df.values, name_price_df.values[1:]):
+            price_changes.append((date_1, date_2, price_2 / price_1))
     return price_changes
 
 
@@ -50,7 +49,7 @@ def calculate_price_changes_by_dates(price_changes):
         days = (date_2 - date_1).days
         day_coef = coef ** (1.0 / days)
         for i in range(days):
-            cur_date = date_1.add(days=i)
+            cur_date = date_1 + datetime.timedelta(days=i)
             day_coefs.append((cur_date, day_coef))
     df = pd.DataFrame(day_coefs, columns=['date', 'coef'])
     df = df.groupby('date', as_index=False)['coef'].mean()
@@ -66,7 +65,7 @@ def convert_day_changes_to_index(day_coefs):
     result = [(cur_date, cur_coef)]
     for i in day_coefs.index:
         cur_coef *= day_coefs.at[i, 'coef']
-        result.append((day_coefs.at[i, 'date'].add(days=1), cur_coef))
+        result.append((day_coefs.at[i, 'date'] + datetime.timedelta(days=1), cur_coef))
     return pd.DataFrame(result, columns=['date', 'coef'])
 
 

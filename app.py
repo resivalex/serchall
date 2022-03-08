@@ -1,4 +1,4 @@
-import pendulum
+import datetime
 import streamlit as st
 import pandas as pd
 from preprocessing.secondary_preprocess import preprocess
@@ -8,9 +8,6 @@ import matplotlib.pyplot as plt
 import joblib
 import os
 import numpy as np
-
-
-BASE_DATE = pendulum.date(2000, 1, 1)
 
 
 st.set_page_config(page_title='Мониторинг цен', layout='wide')
@@ -36,24 +33,26 @@ def geometric_mean(x):
 
 
 def predict_today_price_block(data, price_index):
-    data = data[~data['order_date'].isna()]
     names = data.sort_values('name', ascending=True)['name'].unique()
     name = st.selectbox('Наименование', names)
     name_df = data[data['name'] == name]
-    iso_price_index = price_index.copy()
-    iso_price_index['date'] = [date.date().isoformat() for date in iso_price_index['date']]
+    iso_price_index = dict([
+                               (date.date().isoformat(), price)
+                               for date, price
+                               in zip(price_index['date'], price_index['coef'])
+    ])
 
     def get_date_coef(date):
-        return iso_price_index[iso_price_index['date'] == date.isoformat()].iloc[0]['coef']
+        return iso_price_index[date.isoformat()]
 
     price_coefs = []
-    for date, price in zip(name_df['order_date'], name_df['price']):
+    for date, price in zip(name_df['calculated_order_date'], name_df['price']):
         price_coefs.append(price / get_date_coef(date))
     price_coef = geometric_mean(price_coefs)
     name_price_index = price_index.copy()
     name_price_index['price'] = name_price_index['coef'] * price_coef
 
-    today = pendulum.today().date()
+    today = datetime.datetime.today().date()
     today_price = price_coef * get_date_coef(today)
     st.text(f'Прогнозная цена на {today.isoformat()}: {today_price:,.02f}₽')
     st.dataframe(name_df)
@@ -64,24 +63,26 @@ def predict_today_price_block(data, price_index):
         sns.lineplot(data=name_price_index, x='date', y='price', ax=ax, color='black')
         sns.scatterplot(data=pd.DataFrame([{'date': today, 'price': today_price}]),
                         x='date', y='price', ax=ax, color='black', s=50)
-        sns.scatterplot(data=name_df, x='order_date', y='price', ax=ax, color='black')
+        sns.scatterplot(data=name_df, x='calculated_order_date', y='price', ax=ax, color='black')
         st.pyplot(fig)
 
 
 def model_page(data):
     data = preprocess(data)
 
+    data_for_index = data[['name', 'price', 'calculated_order_date']].rename({'calculated_order_date': 'date'}, axis=1)
     def reset_cache():
-        result = construct(data)
+        os.remove('cache/common_index.joblib')
+        result = construct(data_for_index)
         joblib.dump(result, 'cache/common_index.joblib')
         return result
 
     if os.path.exists('cache/common_index.joblib'):
         result = joblib.load('cache/common_index.joblib')
-        if result['extended_line']['date'].max() != pendulum.today().date():
+        if result['extended_line']['date'].max() != datetime.datetime.today().date():
             result = reset_cache()
     else:
-        result = construct(data)
+        result = construct(data_for_index)
         joblib.dump(result, 'cache/common_index.joblib')
     with st.expander('Технические детали'):
         col1, col2 = st.columns(2)
@@ -95,7 +96,7 @@ def model_page(data):
 
 
 def main():
-    data = pd.read_excel('ini_data/datamon.xlsx', dtype=str, na_filter=False)
+    data = pd.read_excel('ini_data/datamon.xlsx')
     model_page(data)
 
 
