@@ -55,7 +55,7 @@ def predict_today_price_block(data, price_index):
 
     today = pendulum.today().date()
     today_price = price_coef * get_date_coef(today)
-    st.text(f'Прогнозная цена на {today.isoformat()}: {today_price:.02f}₽')
+    st.text(f'Прогнозная цена на {today.isoformat()}: {today_price:,.02f}₽')
     st.dataframe(name_df)
     col1, col2 = st.columns(2)
     with col1:
