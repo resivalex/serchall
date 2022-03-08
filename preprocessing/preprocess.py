@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import datetime, timedelta
 import re
 
 
@@ -45,8 +46,34 @@ def preprocess_name(names):
 
 
 def preprocess(df):
+    # parse delivery dates
+    def date_parse(s):
+        if isinstance(s, datetime):
+            return s
+        elif isinstance(s, str):
+            return datetime.strptime(s, '%d.%m.%Y')
+        return None
+
+    df['Дата поставки'] = df['Дата поставки'].apply(date_parse)
+
+    # calculate order dates
+    df['Расчетная дата заказа'] = None
+    df['Дата заказа фактическая'] = None
+    for i, r in df.iterrows():
+        if pd.notnull(r['Дата заказа']):
+            df.loc[i, 'Расчетная дата заказа'] = df.loc[i, 'Дата заказа']
+            df.loc[i, 'Дата заказа фактическая'] = True
+        elif pd.notnull(r['Дата поставки']) and pd.notnull(r['Плановый срок поставки']):
+            df.loc[i, 'Расчетная дата заказа'] = (
+                    df.loc[i, 'Дата поставки'] -
+                    timedelta(days=df.loc[i, 'Плановый срок поставки'])
+            )
+            df.loc[i, 'Дата заказа фактическая'] = False
+
+    # clean names
     df['Наименование3'] = preprocess_name(df.Наименование)
 
+    # group items
     group_dict = {
         "амортизатор \d": "амортизатор",
         "барабан \d": "барабан",
