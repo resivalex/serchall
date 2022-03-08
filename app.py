@@ -2,12 +2,11 @@ import datetime
 import streamlit as st
 import pandas as pd
 from preprocessing.secondary_preprocess import preprocess
-from predictions.price_indexing.construction import construct
 import seaborn as sns
 import matplotlib.pyplot as plt
 import joblib
 import os
-import numpy as np
+from predictions.price_indexing.model import Model as PriceIndexingModel
 
 
 st.set_page_config(page_title='Мониторинг цен', layout='wide')
@@ -28,38 +27,23 @@ def plot_price_index(price_index, extended_index):
     st.pyplot(fig)
 
 
-def geometric_mean(x):
-    return np.exp(np.log(x).mean())
-
-
-def predict_today_price_block(data, price_index):
+def predict_today_price_block(data, model: PriceIndexingModel):
     names = data.sort_values('name', ascending=True)['name'].unique()
     name = st.selectbox('Наименование', names)
     name_df = data[data['name'] == name]
-    iso_price_index = dict([
-                               (date.date().isoformat(), price)
-                               for date, price
-                               in zip(price_index['date'], price_index['coef'])
-    ])
-
-    def get_date_coef(date):
-        return iso_price_index[date.isoformat()]
-
-    price_coefs = []
-    for date, price in zip(name_df['calculated_order_date'], name_df['price']):
-        price_coefs.append(price / get_date_coef(date))
-    price_coef = geometric_mean(price_coefs)
-    name_price_index = price_index.copy()
-    name_price_index['price'] = name_price_index['coef'] * price_coef
 
     today = datetime.datetime.today().date()
-    today_price = price_coef * get_date_coef(today)
+    x = pd.DataFrame([{'order_date': today, 'name': name}])
+
+    today_price = model.predict(x)
     st.text(f'Прогнозная цена на {today.isoformat()}: {today_price:,.02f}₽')
     st.dataframe(name_df)
     col1, col2 = st.columns(2)
     with col1:
         fig, ax = plt.subplots()
         ax.set_title('Прогнозные цены')
+        name_price_index = model.price_index.copy()
+        name_price_index['price'] =  name_price_index['coef'] * today_price / model.get_date_price_coef(today)
         sns.lineplot(data=name_price_index, x='date', y='price', ax=ax, color='black')
         sns.scatterplot(data=pd.DataFrame([{'date': today, 'price': today_price}]),
                         x='date', y='price', ax=ax, color='black', s=50)
@@ -69,33 +53,32 @@ def predict_today_price_block(data, price_index):
 
 def model_page(data):
     data = preprocess(data)
+    data = data[~data['order_date'].isna()]
 
-    data_for_index = \
-        data[data['has_order_date']] \
-            [['name', 'price', 'calculated_order_date']] \
-            .rename({'calculated_order_date': 'date'}, axis=1)
     def reset_cache():
-        os.remove('cache/common_index.joblib')
-        result = construct(data_for_index)
-        joblib.dump(result, 'cache/common_index.joblib')
-        return result
+        os.remove('cache/price_indexing_model.joblib')
 
-    if os.path.exists('cache/common_index.joblib'):
-        result = joblib.load('cache/common_index.joblib')
-        if result['extended_line']['date'].max() != datetime.datetime.today().date():
-            result = reset_cache()
+    if os.path.exists('cache/price_indexing_model.joblib'):
+        try:
+            model = joblib.load('cache/price_indexing_model.joblib')
+        except Exception as exc:
+            st.error(exc)
+            reset_cache()
+            st.text('Reload the page')
+            return
     else:
-        result = construct(data_for_index)
-        joblib.dump(result, 'cache/common_index.joblib')
+        model = PriceIndexingModel()
+        model.fit(data.drop('price', axis=1), data['price'])
+        joblib.dump(model, 'cache/price_indexing_model.joblib')
     with st.expander('Технические детали'):
         col1, col2 = st.columns(2)
         with col1:
-            plot_price_changes(result['day_price_changes'])
+            plot_price_changes(model.day_price_changes)
         with col2:
-            plot_price_index(result['price_index'], result['extended_line'])
+            plot_price_index(model.price_index, model.extended_line)
         st.button('Очистить кэш и пересчитать индекс', on_click=reset_cache)
     with st.expander('Прогнозы', expanded=True):
-        predict_today_price_block(data, result['extended_line'])
+        predict_today_price_block(data, model)
 
 
 def main():

@@ -54,8 +54,7 @@ def calculate_price_changes_by_dates(price_changes):
     df = pd.DataFrame(day_coefs, columns=['date', 'coef'])
     df = df.groupby('date', as_index=False)['coef'].mean()
     df = df.sort_values('date')
-    if len(df) != (df['date'].max() - df['date'].min()).days + 1:
-        raise Exception('There are dates without any data')
+
     return df
 
 
@@ -76,8 +75,10 @@ def extend_line(df, end_date):
     days_to_add = (end_date - df['ds'].max()).days
     model = Prophet()
     model.fit(df)
-    future_df = model.make_future_dataframe(periods=days_to_add)
+    future_days = 366 * 3 # 3 years
+    future_df = model.make_future_dataframe(periods=days_to_add + future_days)
     pred_df = model.predict(future_df)
     result = pred_df[['ds', 'yhat']]
     result.columns = original_columns
+
     return result

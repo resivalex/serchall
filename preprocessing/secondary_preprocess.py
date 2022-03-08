@@ -34,5 +34,6 @@ def preprocess(data):
         np.quantile(data['calculated_order_date'].dropna(), 0.5, method='lower')
     )
     data['calculated_order_date'] = [t.date() for t in data['calculated_order_date']]
+    data['order_date'] = [t.date() for t in data['order_date']]
 
     return data
