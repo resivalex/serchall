@@ -16,6 +16,19 @@ def _parse_date(s):
 
 
 def preprocess(data):
+    data.columns = [
+        'name',
+        'delivery_date',
+        'order_date',
+        'delivery_period',
+        'planned_delivery_period',
+        'region',
+        'amount',
+        'price',
+        'payment_conditions',
+        'out_of_plan',
+        'supplier'
+    ]
     for str_field in ['name', 'region', 'payment_conditions']:
         data[str_field] = [s.lower() for s in data[str_field]]
     data['delivery_date'] = [_parse_date(s) for s in data['delivery_date']]

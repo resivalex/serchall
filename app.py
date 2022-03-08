@@ -2,9 +2,12 @@ import pendulum
 import streamlit as st
 import pandas as pd
 from preprocessing.preprocess_initial import preprocess
-from predictions.price_indexing_model import PriceIndexingModel
-import random
+from predictions.price_indexing.construction import construct
+import seaborn as sns
 import matplotlib.pyplot as plt
+import joblib
+import os
+import numpy as np
 
 
 BASE_DATE = pendulum.date(2000, 1, 1)
@@ -13,111 +16,89 @@ BASE_DATE = pendulum.date(2000, 1, 1)
 st.set_page_config(page_title='#2', layout='wide')
 
 
-def filter_by_name(data, original_columns):
+def filter_by_name(data):
     needle = st.text_input('Фильтр')
-    data = data[[(needle.lower() in name.lower()) for name in data['name']]]
+    data = data[[(needle.lower() in name.lower()) for name in data['Наименование']]]
 
-    data.columns = original_columns
     st.text(f'Строк: {len(data)}')
     st.dataframe(data, height=600)
 
 
-def preprocessing(data):
-    data = preprocess(data)
-    st.dataframe(data)
+def plot_price_changes(price_changes):
+    fig, ax = plt.subplots()
+    ax.set_title('Ежедневное изменение цен')
+    sns.lineplot(data=price_changes, x='date', y='coef', ax=ax, color='black')
+    st.pyplot(fig)
 
 
-def prepare_train_data(data):
+def plot_price_index(price_index, extended_index):
+    fig, ax = plt.subplots()
+    ax.set_title('Индекс цен')
+    sns.lineplot(data=extended_index, x='date', y='coef', ax=ax, color='lightgreen')
+    sns.lineplot(data=price_index, x='date', y='coef', ax=ax, color='black')
+    st.pyplot(fig)
+
+
+def geometric_mean(x):
+    return np.exp(np.log(x).mean())
+
+
+def predict_today_price_block(data, price_index):
     data = data[~data['order_date'].isna()]
-    train_columns = ['shift', 'distance', 'coef']
-    train_data = []
-    for name, df in data.groupby('name'):
-        if len(df) < 5:
-            continue
-        df = df.sort_values('order_date')
-        for i in range(len(df) * 6): # Just random
-            i1 = random.randint(0, len(df) - 1)
-            i2 = random.randint(0, len(df) - 1)
-            if i1 >= i2:
-                continue
-            distance = float((df.iloc[i2]['order_date'] - df.iloc[i1]['order_date']).days)
-            if distance == 0:
-                continue
-            shift = float((df.iloc[i1]['order_date'] - BASE_DATE).days)
-            coef = float(df.iloc[i2]['price'] / df.iloc[i1]['price'])
-            if coef < 0.1 or coef > 10:
-                continue
-            train_data.append((shift, distance, coef))
+    names = data.sort_values('name', ascending=True)['name'].unique()
+    name = st.selectbox('Наименование', names)
+    name_df = data[data['name'] == name]
+    iso_price_index = price_index.copy()
+    iso_price_index['date'] = [date.date().isoformat() for date in iso_price_index['date']]
 
-    return pd.DataFrame(train_data, columns=train_columns)
+    def get_date_coef(date):
+        return iso_price_index[iso_price_index['date'] == date.isoformat()].iloc[0]['coef']
 
+    price_coefs = []
+    for date, price in zip(name_df['order_date'], name_df['price']):
+        price_coefs.append(price / get_date_coef(date))
+    price_coef = geometric_mean(price_coefs)
+    name_price_index = price_index.copy()
+    name_price_index['price'] = name_price_index['coef'] * price_coef
 
-def add_today_prediction(data, model):
     today = pendulum.today().date()
-    today_price_key = f'{today.isoformat()}_price'
-    data['coef'] = 1.0
-    data[today_price_key] = 0.0
-    for i in data.index:
-        if data.at[i, 'order_date'] is None:
-            data.at[i, today_price_key] = data.at[i, 'price']
-        else:
-            coef = model.predict(pd.DataFrame([{
-                'shift': float((data.at[i, 'order_date'] - BASE_DATE).days),
-                'distance': float((today - data.at[i, 'order_date']).days)
-            }]))[0]
-            data.at[i, 'coef'] = coef
-            data.at[i, today_price_key] = data.at[i, 'price'] * coef
-    return data
+    today_price = price_coef * get_date_coef(today)
+    st.text(f'Прогнозная цена на {today.isoformat()}: {today_price:.02f}₽')
+    st.dataframe(name_df)
+    col1, col2 = st.columns(2)
+    with col1:
+        fig, ax = plt.subplots()
+        ax.set_title('Прогнозные цены')
+        sns.lineplot(data=name_price_index, x='date', y='price', ax=ax, color='lightgreen')
+        sns.scatterplot(data=pd.DataFrame([{'date': today, 'price': today_price}]),
+                        x='date', y='price', ax=ax, color='lightgreen')
+        sns.scatterplot(data=name_df, x='order_date', y='price', ax=ax, color='black')
+        st.pyplot(fig)
 
 
 def model_page(data):
     data = preprocess(data)
-    st.text('Количество сделок по запчасти')
-    st.dataframe(data.groupby('name', as_index=False).size()[['name', 'size']].sort_values('size', ascending=False))
-    train_data = prepare_train_data(data)
-    st.text('Тренировочные данные')
-    st.dataframe(train_data)
-    st.text('Предсказания на сегодня...')
-    model = PriceIndexingModel()
-    model.fit(train_data[['shift', 'distance']], train_data['coef'])
-    data = add_today_prediction(data, model)
-
-    fig, ax = plt.subplots(figsize=(6, 4))
-    today = pendulum.today().date()
-    for i in data.index:
-        if data.at[i, 'order_date'] is not None:
-            ax.plot([data.at[i, 'order_date'], today], [1.0, data.at[i, 'coef']], alpha=0.1, linewidth=0.5, color='black')
-    st.pyplot(fig)
-    st.dataframe(data[['name', 'order_date', 'price', 'coef', data.columns[-1]]].sort_values('name'))
+    if os.path.exists('cache/common_index.joblib'):
+        result = joblib.load('cache/common_index.joblib')
+        if result['extended_line']['date'].max() != pendulum.today().date():
+            result = construct(data)
+            joblib.dump(result, 'cache/common_index.joblib')
+    else:
+        result = construct(data)
+        joblib.dump(result, 'cache/common_index.joblib')
+    with st.expander('Технические детали'):
+        col1, col2 = st.columns(2)
+        with col1:
+            plot_price_changes(result['day_price_changes'])
+        with col2:
+            plot_price_index(result['price_index'], result['extended_line'])
+    with st.expander('Прогнозы', expanded=True):
+        predict_today_price_block(data, result['extended_line'])
 
 
 def main():
     data = pd.read_excel('ini_data/datamon.xlsx', dtype=str, na_filter=False)
-    original_columns = data.columns
-    data.columns = [
-        'name',
-        'delivery_date',
-        'order_date',
-        'delivery_period',
-        'planned_delivery_period',
-        'region',
-        'amount',
-        'price',
-        'payment_conditions',
-        'out_of_plan',
-        'supplier'
-    ]
-    page_name = st.radio('Страница', [
-        'Препроцессинг',
-        'Фильтр по названию',
-        'Модель'
-    ])
-    if page_name == 'Препроцессинг':
-        preprocessing(data)
-    elif page_name == 'Фильтр по названию':
-        filter_by_name(data, original_columns)
-    elif page_name == 'Модель':
-        model_page(data)
+    model_page(data)
 
 
 if __name__ == "__main__":
