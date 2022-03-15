@@ -7,10 +7,6 @@ def _geometric_mean(x):
     return np.exp(np.log(x).mean())
 
 
-class NotEnoughTrainData(Exception):
-    pass
-
-
 class Model(BaseEstimator, RegressorMixin):
 
     def __init__(self):
@@ -23,7 +19,8 @@ class Model(BaseEstimator, RegressorMixin):
     def fit(self, x, y):
         data = x.copy()
         data['price'] = y
-        self.train_data = data.copy()
+        data = data.copy()[~data['order_date'].isna()]
+        self.train_data = data
         data_for_index = \
             data[['name', 'price', 'order_date']] \
                 .rename({'order_date': 'date'}, axis=1)
@@ -38,16 +35,21 @@ class Model(BaseEstimator, RegressorMixin):
         ])
 
     def get_date_price_coef(self, date):
-        return self.iso_price_index[date.isoformat()]
+        key = date.isoformat()
+        return self.iso_price_index.get(key, 1.0) # Hack. Prices in the past without data should be lower
 
     def predict(self, x):
+        y = []
         for i, row in x.iterrows():
             price_coefs = []
             name_df = self.train_data[self.train_data['name'] == row['name']]
             if len(name_df) == 0:
-                raise NotEnoughTrainData()
+                y.append(None)
+                continue
             for date, price in zip(name_df['order_date'], name_df['price']):
                 price_coef = self.get_date_price_coef(date)
                 price_coefs.append(price / price_coef)
             price_coef = _geometric_mean(price_coefs)
-            return self.get_date_price_coef(row['order_date']) * price_coef
+            y.append(self.get_date_price_coef(row['order_date']) * price_coef)
+
+        return np.array(y)
