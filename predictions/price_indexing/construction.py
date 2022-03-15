@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-import pendulum
+import datetime
 from prophet import Prophet
+import os
 
 
 def construct(df):
@@ -9,7 +10,7 @@ def construct(df):
     price_changes_without_outliers = remove_outliers(price_changes)
     day_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)
     price_index = convert_day_changes_to_index(day_price_changes)
-    extended_line = extend_line(price_index, pendulum.today().date())
+    extended_line = extend_line(price_index, datetime.datetime.today().date())
     return dict(
         price_index=price_index,
         extended_line=extended_line,
@@ -18,15 +19,14 @@ def construct(df):
 
 
 def get_normalized_price_changes(df):
-    df = df[~df['order_date'].isna()]
     price_changes = []
     for name, name_df in df.groupby('name'):
-        name_price_df = name_df.groupby('order_date', as_index=False)['price'].mean()
-        name_price_df = name_price_df.sort_values('order_date')
+        name_price_df = name_df.groupby('date', as_index=False)['price'].mean()
+        name_price_df = name_price_df.sort_values('date')
         if len(name_price_df) == 1:
             continue
-        for (order_date_1, price_1), (order_date_2, price_2) in zip(name_price_df.values, name_price_df.values[1:]):
-            price_changes.append((order_date_1, order_date_2, price_2 / price_1))
+        for (date_1, price_1), (date_2, price_2) in zip(name_price_df.values, name_price_df.values[1:]):
+            price_changes.append((date_1, date_2, price_2 / price_1))
     return price_changes
 
 
@@ -34,7 +34,6 @@ def remove_outliers(price_changes):
     day_slopes = [coef ** (1.0 / (date_2 - date_1).days) for date_1, date_2, coef in price_changes]
     left_percentile = np.percentile(day_slopes, 10)
     right_percentile = np.percentile(day_slopes, 90)
-    print(left_percentile, right_percentile)
 
     return [
         item
@@ -50,13 +49,12 @@ def calculate_price_changes_by_dates(price_changes):
         days = (date_2 - date_1).days
         day_coef = coef ** (1.0 / days)
         for i in range(days):
-            cur_date = date_1.add(days=i)
+            cur_date = date_1 + datetime.timedelta(days=i)
             day_coefs.append((cur_date, day_coef))
     df = pd.DataFrame(day_coefs, columns=['date', 'coef'])
     df = df.groupby('date', as_index=False)['coef'].mean()
     df = df.sort_values('date')
-    if len(df) != (df['date'].max() - df['date'].min()).days + 1:
-        raise Exception('There are dates without any data')
+
     return df
 
 
@@ -66,7 +64,7 @@ def convert_day_changes_to_index(day_coefs):
     result = [(cur_date, cur_coef)]
     for i in day_coefs.index:
         cur_coef *= day_coefs.at[i, 'coef']
-        result.append((day_coefs.at[i, 'date'].add(days=1), cur_coef))
+        result.append((day_coefs.at[i, 'date'] + datetime.timedelta(days=1), cur_coef))
     return pd.DataFrame(result, columns=['date', 'coef'])
 
 
@@ -76,9 +74,43 @@ def extend_line(df, end_date):
     df.columns = ['ds', 'y']
     days_to_add = (end_date - df['ds'].max()).days
     model = Prophet()
-    model.fit(df)
-    future_df = model.make_future_dataframe(periods=days_to_add)
+    with suppress_stdout_stderr():
+        model.fit(df)
+    future_days = 366 * 3 # 3 years
+    future_df = model.make_future_dataframe(periods=days_to_add + future_days)
     pred_df = model.predict(future_df)
     result = pred_df[['ds', 'yhat']]
     result.columns = original_columns
+
     return result
+
+
+# https://github.com/facebook/prophet/issues/223#issuecomment-310497971
+class suppress_stdout_stderr(object):
+    '''
+    A context manager for doing a "deep suppression" of stdout and stderr in
+    Python, i.e. will suppress all print, even if the print originates in a
+    compiled C/Fortran sub-function.
+       This will not suppress raised exceptions, since exceptions are printed
+    to stderr just before a script exits, and after the context manager has
+    exited (at least, I think that is why it lets exceptions through).
+
+    '''
+    def __init__(self):
+        # Open a pair of null files
+        self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
+        # Save the actual stdout (1) and stderr (2) file descriptors.
+        self.save_fds = (os.dup(1), os.dup(2))
+
+    def __enter__(self):
+        # Assign the null pointers to stdout and stderr.
+        os.dup2(self.null_fds[0], 1)
+        os.dup2(self.null_fds[1], 2)
+
+    def __exit__(self, *_):
+        # Re-assign the real stdout/stderr back to (1) and (2)
+        os.dup2(self.save_fds[0], 1)
+        os.dup2(self.save_fds[1], 2)
+        # Close the null files
+        os.close(self.null_fds[0])
+        os.close(self.null_fds[1])
