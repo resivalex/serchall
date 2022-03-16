@@ -6,7 +6,7 @@ def check_model(model, train_data, test_data, title='Some model'):
     model.fit(train_data.drop('price', axis=1), train_data['price'])
     y_pred = model.predict(test_data.drop('price', axis=1))
     y_pred_not_na_indexing = [item is not None for item in y_pred]
-    print('With predictions:', sum(y_pred_not_na_indexing), '/', len(y_pred))
+    print('Predicted:', f'{sum(y_pred_not_na_indexing) / len(y_pred) * 100:.02f}%')
     y_pred_not_na = y_pred[y_pred_not_na_indexing]
     y_true_not_na = test_data['price'][y_pred_not_na_indexing]
     rmspe_value = rmspe(y_true_not_na, y_pred_not_na)
