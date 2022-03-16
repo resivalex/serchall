@@ -9,9 +9,7 @@ def check_model(model, train_data, test_data, title='Some model'):
     print('With predictions:', sum(y_pred_not_na_indexing), '/', len(y_pred))
     y_pred_not_na = y_pred[y_pred_not_na_indexing]
     y_true_not_na = test_data['price'][y_pred_not_na_indexing]
-    mape_value = mape(y_true_not_na, y_pred_not_na)
     rmspe_value = rmspe(y_true_not_na, y_pred_not_na)
-    print(f'MAPE: {mape_value * 100:.02f}%')
     print(f'RMSPE: {rmspe_value * 100:.02f}%')
 
 
