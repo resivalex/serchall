@@ -35,7 +35,7 @@ def predict_today_price_block(data, model: PriceIndexingModel):
     today = datetime.datetime.today().date()
     x = pd.DataFrame([{'order_date': today, 'name': name}])
 
-    today_price = model.predict(x)
+    today_price = model.predict(x)[0]
     st.text(f'Прогнозная цена на {today.isoformat()}: {today_price:,.02f}₽')
     st.dataframe(name_df)
     col1, col2 = st.columns(2)
