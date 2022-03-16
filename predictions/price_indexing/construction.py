@@ -3,6 +3,10 @@ import numpy as np
 import datetime
 from prophet import Prophet
 import os
+import warnings
+
+
+warnings.filterwarnings('ignore')
 
 
 def construct(df):
@@ -73,7 +77,7 @@ def extend_line(df, end_date):
     original_columns = list(df.columns)
     df.columns = ['ds', 'y']
     days_to_add = (end_date - df['ds'].max()).days
-    model = Prophet()
+    model = Prophet(daily_seasonality=False)
     with suppress_stdout_stderr():
         model.fit(df)
     future_days = 366 * 3 # 3 years
