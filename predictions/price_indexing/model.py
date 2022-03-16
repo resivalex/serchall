@@ -9,15 +9,18 @@ def _geometric_mean(x):
 
 class Model(BaseEstimator, RegressorMixin):
 
-    def __init__(self):
+    def __init__(self, use_cleaned_name=False):
         self.train_data = None
         self.day_price_changes = None
         self.price_index = None
         self.extended_line = None
         self.iso_price_index = None
+        self.use_cleaned_name = use_cleaned_name
 
     def fit(self, x, y):
         data = x.copy()
+        if self.use_cleaned_name:
+            data['name'] = data['cleaned_name']
         data['price'] = y
         data = data.copy()[~data['order_date'].isna()]
         self.train_data = data
@@ -39,6 +42,9 @@ class Model(BaseEstimator, RegressorMixin):
         return self.iso_price_index.get(key, 1.0) # Hack. Prices in the past without data should be lower
 
     def predict(self, x):
+        x = x.copy()
+        if self.use_cleaned_name:
+            x['name'] = x['cleaned_name']
         y = []
         for i, row in x.iterrows():
             price_coefs = []
