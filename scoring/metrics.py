@@ -7,4 +7,6 @@ def mape(y_true, y_pred):
 
 
 def rmspe(y_true, y_pred):
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
     return np.sqrt(np.mean(np.square((y_true - y_pred) / y_true)))
