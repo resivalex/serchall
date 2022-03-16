@@ -1,4 +1,4 @@
-from .metrics import mape, rmspe
+from .metrics import rmspe
 
 
 def check_model(model, train_data, test_data, title='Some model'):
