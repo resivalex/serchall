@@ -36,8 +36,8 @@ def get_normalized_price_changes(df):
 
 def remove_outliers(price_changes):
     day_slopes = [coef ** (1.0 / (date_2 - date_1).days) for date_1, date_2, coef in price_changes]
-    left_percentile = np.percentile(day_slopes, 10)
-    right_percentile = np.percentile(day_slopes, 90)
+    left_percentile = np.percentile(day_slopes, 8)
+    right_percentile = np.percentile(day_slopes, 92)
 
     return [
         item
