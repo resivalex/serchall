@@ -1,5 +1,5 @@
 from sklearn.base import BaseEstimator, RegressorMixin
-from .construction import construct
+from .construction import build_price_index
 import numpy as np
 
 
@@ -27,7 +27,7 @@ class Model(BaseEstimator, RegressorMixin):
         data_for_index = \
             data[['name', 'price', 'order_date']] \
                 .rename({'order_date': 'date'}, axis=1)
-        result = construct(data_for_index)
+        result = build_price_index(data_for_index)
         self.day_price_changes = result['day_price_changes']
         self.price_index = result['price_index']
         self.extended_line = result['extended_line']

@@ -9,7 +9,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-def construct(df):
+def build_price_index(df):
     price_changes = get_normalized_price_changes(df)
     price_changes_without_outliers = remove_outliers(price_changes)
     day_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)

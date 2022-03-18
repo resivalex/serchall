@@ -2,7 +2,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import datetime
-from predictions.price_indexing.construction import construct as construct_price_index
+from predictions.price_indexing.construction import build_price_index as construct_price_index
 
 
 BASE_DATE = datetime.date(2015, 1, 1)
