@@ -51,11 +51,17 @@ def predict_today_price_block(data, model: PriceIndexingModel):
 
 
 def model_page(data):
-    data = preprocess(data)
-    data = data[~data['order_date'].isna()]
 
     def reset_cache():
+        os.remove('cache/preprocessed_data.joblib')
         os.remove('cache/price_indexing_model.joblib')
+
+    if os.path.exists('cache/preprocessed_data.joblib'):
+        data = joblib.load('cache/preprocessed_data.joblib')
+    else:
+        data = preprocess(data)
+        data = data[~data['order_date'].isna()]
+        joblib.dump(data, 'cache/preprocessed_data.joblib')
 
     if os.path.exists('cache/price_indexing_model.joblib'):
         try:
