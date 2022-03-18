@@ -49,7 +49,8 @@ def build_price_index(df,
     >>> }))
     """
     price_changes = get_normalized_price_changes(df)
-    price_changes_without_outliers = remove_outliers(price_changes, outliers_percentile)
+    if outliers_percentile > 0:
+        price_changes_without_outliers = remove_outliers(price_changes, outliers_percentile)
     daily_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)
     price_index = convert_day_changes_to_index(daily_price_changes, min_date, max_date)
     return dict(
