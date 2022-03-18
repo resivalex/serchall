@@ -35,8 +35,10 @@ def build_price_index(df,
 
     Returns
     -------
-    pandas.DataFrame
-        Датафрейм с колонками "date", "coef"
+    dict
+        Два значения с датафреймами. Датафреймы имеют колонки "date", "coef"
+        "price_index" - Результирующий индекс
+        "daily_price_changes" - Подневные изменения цены
 
     Examples
     --------
