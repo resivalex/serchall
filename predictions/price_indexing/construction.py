@@ -19,6 +19,33 @@ def build_price_index(df,
                       min_date=MIN_DEFAULT_DATE,
                       max_date=MAX_DEFAULT_DATE,
                       outliers_percentile=0):
+    """
+    Строит индекс изменения цен
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Датафрейм с колонками "name", "date", "price"
+    min_date : datetime.date
+        Первая дата результирующего индекса
+    max_date: datetime.date
+        Последняя дата результирующего индекса
+    outliers_percentile: int
+        Сколько процентов отрезков отбрасывать с каждой стороны по угловому коэффициенту
+
+    Returns
+    -------
+    pandas.DataFrame
+        Датафрейм с колонками "date", "coef"
+
+    Examples
+    --------
+    >>> build_price_index(pd.DataFrame({
+    >>>    'name': ['A', 'A'],
+    >>>    'date': [datetime.date(2016, 1, 1), datetime.date(2021, 1, 1)],
+    >>>    'price': [200, 300]
+    >>> }))
+    """
     price_changes = get_normalized_price_changes(df)
     price_changes_without_outliers = remove_outliers(price_changes, outliers_percentile)
     daily_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)
@@ -73,7 +100,7 @@ def calculate_price_changes_by_dates(price_changes):
 
 
 def convert_day_changes_to_index(day_coefs, min_date, max_date):
-    average_day_coef = day_coefs['coef'].mean()
+    average_day_coef = _geometric_mean(day_coefs['coef'])
     day_coef_dict = {row['date']: row['coef'] for _, row in day_coefs.iterrows()}
     cur_date = min_date
     cur_coef = 1.0
