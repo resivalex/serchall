@@ -1,6 +1,10 @@
 from sklearn.base import BaseEstimator, RegressorMixin
 from .construction import build_price_index
 import numpy as np
+import warnings
+
+
+warnings.filterwarnings('ignore')
 
 
 def _geometric_mean(x):
