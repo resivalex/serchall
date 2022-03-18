@@ -11,10 +11,9 @@ class Model(BaseEstimator, RegressorMixin):
 
     def __init__(self, use_cleaned_name=False):
         self.train_data = None
-        self.day_price_changes = None
+        self.daily_price_changes = None
         self.price_index = None
-        self.extended_line = None
-        self.iso_price_index = None
+        self.price_index_dict = None
         self.use_cleaned_name = use_cleaned_name
 
     def fit(self, x, y):
@@ -27,19 +26,17 @@ class Model(BaseEstimator, RegressorMixin):
         data_for_index = \
             data[['name', 'price', 'order_date']] \
                 .rename({'order_date': 'date'}, axis=1)
-        result = build_price_index(data_for_index)
-        self.day_price_changes = result['day_price_changes']
+        result = build_price_index(data_for_index, outliers_percentile=8)
+        self.daily_price_changes = result['daily_price_changes']
         self.price_index = result['price_index']
-        self.extended_line = result['extended_line']
-        self.iso_price_index = dict([
-            (date.date().isoformat(), price)
+        self.price_index_dict = {
+            date: price
             for date, price
-            in zip(self.extended_line['date'], self.extended_line['coef'])
-        ])
+            in zip(self.price_index['date'], self.price_index['coef'])
+        }
 
     def get_date_price_coef(self, date):
-        key = date.isoformat()
-        return self.iso_price_index.get(key, 1.0) # Hack. Prices in the past without data should be lower
+        return self.price_index_dict[date]
 
     def predict(self, x):
         x = x.copy()

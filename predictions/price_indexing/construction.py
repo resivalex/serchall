@@ -1,24 +1,31 @@
 import pandas as pd
 import numpy as np
 import datetime
-from prophet import Prophet
-import os
 import warnings
 
 
 warnings.filterwarnings('ignore')
 
 
-def build_price_index(df):
+def _geometric_mean(x):
+    return np.exp(np.log(x).mean())
+
+
+MIN_DEFAULT_DATE = datetime.date(2015, 1, 1)
+MAX_DEFAULT_DATE = datetime.date.today() + datetime.timedelta(366 * 3) # 3 years from now
+
+
+def build_price_index(df,
+                      min_date=MIN_DEFAULT_DATE,
+                      max_date=MAX_DEFAULT_DATE,
+                      outliers_percentile=0):
     price_changes = get_normalized_price_changes(df)
-    price_changes_without_outliers = remove_outliers(price_changes)
-    day_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)
-    price_index = convert_day_changes_to_index(day_price_changes)
-    extended_line = extend_line(price_index, datetime.datetime.today().date())
+    price_changes_without_outliers = remove_outliers(price_changes, outliers_percentile)
+    daily_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)
+    price_index = convert_day_changes_to_index(daily_price_changes, min_date, max_date)
     return dict(
         price_index=price_index,
-        extended_line=extended_line,
-        day_price_changes=day_price_changes
+        daily_price_changes=daily_price_changes
     )
 
 
@@ -34,10 +41,10 @@ def get_normalized_price_changes(df):
     return price_changes
 
 
-def remove_outliers(price_changes):
+def remove_outliers(price_changes, outliers_percentile):
     day_slopes = [coef ** (1.0 / (date_2 - date_1).days) for date_1, date_2, coef in price_changes]
-    left_percentile = np.percentile(day_slopes, 8)
-    right_percentile = np.percentile(day_slopes, 92)
+    left_percentile = np.percentile(day_slopes, outliers_percentile)
+    right_percentile = np.percentile(day_slopes, 100 - outliers_percentile)
 
     return [
         item
@@ -56,65 +63,23 @@ def calculate_price_changes_by_dates(price_changes):
             cur_date = date_1 + datetime.timedelta(days=i)
             day_coefs.append((cur_date, day_coef))
     df = pd.DataFrame(day_coefs, columns=['date', 'coef'])
-    df = df.groupby('date', as_index=False)['coef'].mean()
+    aggregated_coefs = []
+    for date, date_df in df.groupby('date'):
+        aggregated_coefs.append((date, _geometric_mean(date_df['coef'])))
+    df = pd.DataFrame(aggregated_coefs, columns=['date', 'coef'])
     df = df.sort_values('date')
 
     return df
 
 
-def convert_day_changes_to_index(day_coefs):
-    cur_date = day_coefs.iloc[0]['date']
+def convert_day_changes_to_index(day_coefs, min_date, max_date):
+    average_day_coef = day_coefs['coef'].mean()
+    day_coef_dict = {row['date']: row['coef'] for _, row in day_coefs.iterrows()}
+    cur_date = min_date
     cur_coef = 1.0
-    result = [(cur_date, cur_coef)]
-    for i in day_coefs.index:
-        cur_coef *= day_coefs.at[i, 'coef']
-        result.append((day_coefs.at[i, 'date'] + datetime.timedelta(days=1), cur_coef))
+    result = []
+    while cur_date <= max_date:
+        result.append((cur_date, cur_coef))
+        cur_coef *= day_coef_dict.get(cur_date, average_day_coef)
+        cur_date = cur_date + datetime.timedelta(days=1)
     return pd.DataFrame(result, columns=['date', 'coef'])
-
-
-def extend_line(df, end_date):
-    df = df.copy()
-    original_columns = list(df.columns)
-    df.columns = ['ds', 'y']
-    days_to_add = (end_date - df['ds'].max()).days
-    model = Prophet(daily_seasonality=False)
-    with suppress_stdout_stderr():
-        model.fit(df)
-    future_days = 366 * 3 # 3 years
-    future_df = model.make_future_dataframe(periods=days_to_add + future_days)
-    pred_df = model.predict(future_df)
-    result = pred_df[['ds', 'yhat']]
-    result.columns = original_columns
-
-    return result
-
-
-# https://github.com/facebook/prophet/issues/223#issuecomment-310497971
-class suppress_stdout_stderr(object):
-    '''
-    A context manager for doing a "deep suppression" of stdout and stderr in
-    Python, i.e. will suppress all print, even if the print originates in a
-    compiled C/Fortran sub-function.
-       This will not suppress raised exceptions, since exceptions are printed
-    to stderr just before a script exits, and after the context manager has
-    exited (at least, I think that is why it lets exceptions through).
-
-    '''
-    def __init__(self):
-        # Open a pair of null files
-        self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
-        # Save the actual stdout (1) and stderr (2) file descriptors.
-        self.save_fds = (os.dup(1), os.dup(2))
-
-    def __enter__(self):
-        # Assign the null pointers to stdout and stderr.
-        os.dup2(self.null_fds[0], 1)
-        os.dup2(self.null_fds[1], 2)
-
-    def __exit__(self, *_):
-        # Re-assign the real stdout/stderr back to (1) and (2)
-        os.dup2(self.save_fds[0], 1)
-        os.dup2(self.save_fds[1], 2)
-        # Close the null files
-        os.close(self.null_fds[0])
-        os.close(self.null_fds[1])

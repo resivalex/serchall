@@ -19,10 +19,9 @@ def plot_price_changes(price_changes):
     st.pyplot(fig)
 
 
-def plot_price_index(price_index, extended_index):
+def plot_price_index(price_index):
     fig, ax = plt.subplots()
     ax.set_title('Индекс цен')
-    sns.lineplot(data=extended_index, x='date', y='coef', ax=ax, color='lightgreen')
     sns.lineplot(data=price_index, x='date', y='coef', ax=ax, color='black')
     st.pyplot(fig)
 
@@ -73,9 +72,9 @@ def model_page(data):
     with st.expander('Технические детали'):
         col1, col2 = st.columns(2)
         with col1:
-            plot_price_changes(model.day_price_changes)
+            plot_price_changes(model.daily_price_changes)
         with col2:
-            plot_price_index(model.price_index, model.extended_line)
+            plot_price_index(model.price_index)
         st.button('Очистить кэш и пересчитать индекс', on_click=reset_cache)
     with st.expander('Прогнозы', expanded=True):
         predict_today_price_block(data, model)
