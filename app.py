@@ -35,19 +35,55 @@ def predict_today_price_block(data, model: PriceIndexingModel):
     x = pd.DataFrame([{'order_date': today, 'name': name}])
 
     today_price = model.predict(x)[0]
-    st.text(f'Прогнозная цена на {today.isoformat()}: {today_price:,.02f}₽')
+    st.metric('Прогнозная цена', f'{today_price:,.02f} ₽'.replace(',', ' '))
+    name_df['out_of_plan'] = name_df['out_of_plan'].apply(lambda x: 'Да' if x else 'Нет')
+    name_df = name_df.rename({
+        'name': 'Наименование',
+        'delivery_date': 'Дата поставки',
+        'order_date': 'Дата заказа',
+        'delivery_period': 'Срок поставки',
+        'planned_delivery_period': 'Плановый срок поставки',
+        'region': 'Регион',
+        'amount': 'Объем заказа',
+        'price': 'Цена, руб',
+        'payment_conditions': 'Условия платежа',
+        'out_of_plan': 'Внеплановая закупка',
+        'supplier': 'Поставщик',
+        'group': 'Группа'
+    }, axis=1)
+    name_df = name_df.drop(['calculated_order_date', 'has_order_date'], axis=1)
+
     st.dataframe(name_df)
     col1, col2 = st.columns(2)
     with col1:
         fig, ax = plt.subplots()
-        ax.set_title('Прогнозные цены')
+        ax.set_title('Индекс цен')
         name_price_index = model.price_index.copy()
         name_price_index['price'] =  name_price_index['coef'] * today_price / model.get_date_price_coef(today)
         sns.lineplot(data=name_price_index, x='date', y='price', ax=ax, color='black')
         sns.scatterplot(data=pd.DataFrame([{'date': today, 'price': today_price}]),
                         x='date', y='price', ax=ax, color='black', s=50)
-        sns.scatterplot(data=name_df, x='calculated_order_date', y='price', ax=ax, color='black')
+        sns.scatterplot(data=name_df, x='Дата поставки', y='Цена, руб', ax=ax, color='black')
+        plt.ylabel('Цена, руб')
+        plt.xlabel('Дата')
         st.pyplot(fig)
+    with col2:
+        st.markdown('#### Статистические метрики')
+        st.table(pd.DataFrame(index=[
+            'Количество измерений наименования',
+            'Минимальная цена',
+            'Максимальная цена',
+            'Группа',
+            'Количество измерений в группе'
+        ],
+            data={'': [
+                str(len(name_df)),
+                f"{name_df['Цена, руб'].min():,.02f} ₽".replace(',', ' '),
+                f"{name_df['Цена, руб'].max():,.02f} ₽".replace(',', ' '),
+                name_df.iloc[0]['Группа'],
+                str(len(data[data['group'] == name_df.iloc[0]['Группа']]))
+            ]}
+        ))
 
 
 def model_page(data):
@@ -88,7 +124,7 @@ def model_page(data):
         with col2:
             plot_price_index(model.price_index)
         st.button('Очистить кэш и пересчитать индекс', on_click=reset_cache)
-    with st.expander('Прогнозы', expanded=True):
+    with st.expander('Анализ по наименованию', expanded=True):
         predict_today_price_block(data, model)
 
 
