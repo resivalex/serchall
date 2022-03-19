@@ -34,7 +34,7 @@ class Model(BaseEstimator, RegressorMixin):
             df = df.sort_values('order_date', ascending=False)
             self.name_average_prices[name] = _geometric_mean(df['price'])
         data['rel_price'] = data.apply((lambda row: row['price'] / self.name_average_prices[row['name']]), axis=1)
-        x = [[(row['order_date'] - BASE_DATE).days * 0, row['price_index_coef']] for _, row in data.iterrows()]
+        x = [[(row['order_date'] - BASE_DATE).days * 1, row['price_index_coef']] for _, row in data.iterrows()]
         y = np.log(data['rel_price'])
         self.model.fit(x, y)
 
@@ -46,7 +46,7 @@ class Model(BaseEstimator, RegressorMixin):
             if avg_price is None:
                 y.append(None)
                 continue
-            x = [[(row['order_date'] - BASE_DATE).days * 0, self.__get_common_index_coef(row['order_date'])]]
+            x = [[(row['order_date'] - BASE_DATE).days * 1, self.__get_common_index_coef(row['order_date'])]]
             y_pred = self.model.predict(x)[0]
             y_pred = np.exp(y_pred)
             price = y_pred * avg_price

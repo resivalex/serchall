@@ -8,7 +8,7 @@ def _geometric_mean(x):
 
 
 MIN_DEFAULT_DATE = datetime.date(2015, 1, 1)
-MAX_DEFAULT_DATE = datetime.date.today() + datetime.timedelta(366 * 3) # 3 years from now
+MAX_DEFAULT_DATE = datetime.date.today() + datetime.timedelta(days=183) # a half of year
 
 
 def build_price_index(df,
@@ -62,12 +62,13 @@ def get_normalized_price_changes(df):
             aggregated_date_prices.append((date, _geometric_mean(date_df['price'])))
         name_price_df = pd.DataFrame(aggregated_date_prices, columns=['date', 'price'])
         name_price_df = name_price_df.sort_values('date')
-        if len(name_price_df) == 1:
-            continue
-        for (date_1, price_1), (date_2, price_2) in zip(name_price_df.values, name_price_df.values[(len(name_price_df) + 1) // 2:]):
+        shift = (len(name_price_df) + 3) // 4
+        for (date_1, price_1), (date_2, price_2) in zip(name_price_df.values, name_price_df.values[shift:]):
+            min_interval = 30
+            if (date_2 - date_1).days < min_interval:
+                date_1 = date_2 - datetime.timedelta(days=min_interval)
             price_changes.append((date_1, date_2, price_2 / price_1))
     return price_changes
-
 
 def remove_outliers(price_changes, outliers_percentile):
     day_slopes = [coef ** (1.0 / (date_2 - date_1).days) for date_1, date_2, coef in price_changes]
