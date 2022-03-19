@@ -64,11 +64,12 @@ def get_normalized_price_changes(df):
         name_price_df = name_price_df.sort_values('date')
         shift = (len(name_price_df) + 3) // 4
         for (date_1, price_1), (date_2, price_2) in zip(name_price_df.values, name_price_df.values[shift:]):
-            min_interval = 30
+            min_interval = 15
             if (date_2 - date_1).days < min_interval:
                 date_1 = date_2 - datetime.timedelta(days=min_interval)
             price_changes.append((date_1, date_2, price_2 / price_1))
     return price_changes
+
 
 def remove_outliers(price_changes, outliers_percentile):
     day_slopes = [coef ** (1.0 / (date_2 - date_1).days) for date_1, date_2, coef in price_changes]

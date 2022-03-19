@@ -61,6 +61,12 @@ def model_page(data):
     else:
         data = preprocess(data)
         data = data[~data['order_date'].isna()]
+        data['name'] = data['cleaned_name'].apply(lambda x: x.capitalize())
+        data = data.drop(['cleaned_name'], axis=1)
+        outliers = {'редуктор 3572-05-11-000', 'подшипник седловой 3546-03-04-000-03', 'шпилька 3550-05-00-012-03'}
+        data = data[[name not in outliers for name in data['name']]]
+        data = data.sort_values(['name', 'order_date'])
+        data.index = list(range(len(data)))
         joblib.dump(data, 'cache/preprocessed_data.joblib')
 
     if os.path.exists('cache/price_indexing_model.joblib'):
