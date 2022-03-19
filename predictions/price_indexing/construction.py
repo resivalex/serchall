@@ -45,8 +45,7 @@ def build_price_index(df,
     >>> }))
     """
     price_changes = get_normalized_price_changes(df)
-    if outliers_percentile > 0:
-        price_changes_without_outliers = remove_outliers(price_changes, outliers_percentile)
+    price_changes_without_outliers = remove_outliers(price_changes, outliers_percentile)
     daily_price_changes = calculate_price_changes_by_dates(price_changes_without_outliers)
     price_index = convert_day_changes_to_index(daily_price_changes, min_date, max_date)
     return dict(
@@ -58,7 +57,10 @@ def build_price_index(df,
 def get_normalized_price_changes(df):
     price_changes = []
     for name, name_df in df.groupby('name'):
-        name_price_df = name_df.groupby('date', as_index=False)['price'].mean()
+        aggregated_date_prices = []
+        for date, date_df in name_df.groupby('date'):
+            aggregated_date_prices.append((date, _geometric_mean(date_df['price'])))
+        name_price_df = pd.DataFrame(aggregated_date_prices, columns=['date', 'price'])
         name_price_df = name_price_df.sort_values('date')
         if len(name_price_df) == 1:
             continue
