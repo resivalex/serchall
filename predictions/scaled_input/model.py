@@ -22,7 +22,7 @@ class Model(BaseEstimator, RegressorMixin):
     def fit(self, x, y):
         data = x.copy()
         data['price'] = y
-        common_price_index = construct_price_index(data.rename({'order_date': 'date'}, axis=1)[['name', 'date', 'price']])['extended_line']
+        common_price_index = construct_price_index(data.rename({'order_date': 'date'}, axis=1)[['name', 'date', 'price']])['price_index']
         self.common_price_index_dict = {
             date: coef
             for date, coef

@@ -64,7 +64,7 @@ def get_normalized_price_changes(df):
         name_price_df = name_price_df.sort_values('date')
         if len(name_price_df) == 1:
             continue
-        for (date_1, price_1), (date_2, price_2) in zip(name_price_df.values, name_price_df.values[1:]):
+        for (date_1, price_1), (date_2, price_2) in zip(name_price_df.values, name_price_df.values[(len(name_price_df) + 1) // 2:]):
             price_changes.append((date_1, date_2, price_2 / price_1))
     return price_changes
 
